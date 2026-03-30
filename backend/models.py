@@ -19,7 +19,9 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True)
-    preferred_genre = Column(String)
+    username = Column(String, unique=True)
+    password = Column(String)
+    preferred_genre = Column(String, nullable=True)
 
 
 class Wishlist(Base):

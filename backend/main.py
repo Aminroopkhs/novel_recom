@@ -6,6 +6,12 @@ from models import Book
 from models import User
 from models import Wishlist 
 from models import Library
+from recommender import (
+    recommend_bert,
+    recommend_e5,
+    recommend_bge,
+    compare_models
+)
 app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
@@ -46,6 +52,52 @@ def create_user(genre: str):
         "user_id": user.id,
         "preferred_genre": user.preferred_genre
     }
+
+@app.post("/signup")
+def signup(username: str, password: str):
+    db = SessionLocal()
+
+    existing = db.query(User).filter(User.username == username).first()
+    if existing:
+        return {"error": "User already exists"}
+
+    user = User(username=username, password=password)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "msg": "User created",
+        "user_id": user.id
+    }
+
+@app.post("/login")
+def login(username: str, password: str):
+    db = SessionLocal()
+
+    user = db.query(User).filter(
+        User.username == username,
+        User.password == password
+    ).first()
+
+    if not user:
+        return {"error": "Invalid credentials"}
+
+    return {
+        "user_id": user.id,
+        "genre": user.preferred_genre
+    }
+
+@app.post("/set-genre/{user_id}")
+def set_genre(user_id: int, genre: str):
+    db = SessionLocal()
+
+    user = db.query(User).filter(User.id == user_id).first()
+    user.preferred_genre = genre
+
+    db.commit()
+
+    return {"msg": "Genre set"}
 
 @app.get("/user/{user_id}")
 def get_user(user_id: int):
@@ -150,6 +202,10 @@ def get_library(user_id: int):
 
     return books
 
+import random
+from database import SessionLocal
+from models import User, Book
+
 @app.get("/homepage/{user_id}")
 def homepage(user_id: int):
     db = SessionLocal()
@@ -160,9 +216,12 @@ def homepage(user_id: int):
     books = db.query(Book).all()
     random_books = random.sample(books, min(10, len(books)))
 
+    # E5 recommendations
+    recommended = recommend_e5(user.preferred_genre)
+
     return {
         "genre": user.preferred_genre,
-        "recommended": [],  # will fill in Phase 4
+        "recommended": recommended,
         "random": [
             {
                 "id": b.id,
@@ -172,3 +231,16 @@ def homepage(user_id: int):
             for b in random_books
         ]
     }
+
+@app.get("/recommend/{genre}")
+def recommend(genre: str):
+    return {
+        "bert": recommend_bert(genre),
+        "e5": recommend_e5(genre),
+        "bge": recommend_bge(genre)
+    }
+
+@app.get("/compare/{genre}")
+def compare(genre: str):
+    return compare_models(genre)
+

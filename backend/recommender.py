@@ -1,0 +1,105 @@
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
+from database import SessionLocal
+from models import Book
+import time
+
+# -----------------------------
+# LOAD MODELS (GLOBAL)
+# -----------------------------
+print("🔄 Loading models...")
+
+bert_model = SentenceTransformer('all-MiniLM-L6-v2')   # BERT-like
+e5_model = SentenceTransformer('intfloat/e5-small')    # E5
+bge_model = SentenceTransformer('BAAI/bge-small-en')   # BGE
+
+print("✅ Models loaded!")
+
+
+# -----------------------------
+# WEIGHTED TEXT FUNCTION
+# -----------------------------
+def build_weighted_text(book):
+    return (
+        (book.genre + " ") * 3 +      # HIGH weight
+        (book.tropes + " ") * 2 +     # MEDIUM weight
+        (book.synopsis + " ") * 1     # LOW weight
+    )
+
+
+# -----------------------------
+# GENERIC RECOMMENDER
+# -----------------------------
+def recommend_books(model, user_genre):
+    db = SessionLocal()
+    books = db.query(Book).all()
+
+    texts = [build_weighted_text(b) for b in books]
+
+    # Encode all books
+    embeddings = model.encode(texts)
+
+    # Encode user query
+    query_embedding = model.encode([user_genre])
+
+    # Compute similarity
+    scores = cosine_similarity(query_embedding, embeddings)[0]
+
+    # Rank results
+    ranked = sorted(zip(books, scores), key=lambda x: x[1], reverse=True)
+
+    return [
+        {
+        "id": b.id,
+        "title": b.title,
+        "image": b.imageUrl,
+        "rating": b.rating,
+        "score": float(score)
+        }
+        for b, score in ranked[:10]
+    ]
+
+
+# -----------------------------
+# MODEL-SPECIFIC FUNCTIONS
+# -----------------------------
+def recommend_bert(user_genre):
+    return recommend_books(bert_model, user_genre)
+
+
+def recommend_e5(user_genre):
+    return recommend_books(e5_model, user_genre)
+
+
+def recommend_bge(user_genre):
+    return recommend_books(bge_model, user_genre)
+
+
+# -----------------------------
+# MODEL COMPARISON
+# -----------------------------
+def compare_models(user_genre):
+    results = {}
+
+    models = {
+        "BERT": bert_model,
+        "E5": e5_model,
+        "BGE": bge_model
+    }
+
+    for name, model in models.items():
+        start = time.time()
+
+        recs = recommend_books(model, user_genre)
+
+        end = time.time()
+
+        avg_score = sum([r["score"] for r in recs]) / len(recs)
+
+        results[name] = {
+            "time_taken": round(end - start, 3),
+            "avg_score": round(avg_score, 3),
+            "top_result": recs[0]["title"]
+        }
+
+    return results
