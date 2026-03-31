@@ -48,16 +48,7 @@ def recommend_books(model, user_genre):
     # Rank results
     ranked = sorted(zip(books, scores), key=lambda x: x[1], reverse=True)
 
-    return [
-        {
-        "id": b.id,
-        "title": b.title,
-        "image": b.imageUrl,
-        "rating": b.rating,
-        "score": float(score)
-        }
-        for b, score in ranked[:10]
-    ]
+    return [b for b, _ in ranked[:10]]
 
 
 # -----------------------------

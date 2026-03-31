@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from database import Base, engine
 from crud import load_books
 from database import SessionLocal
@@ -6,6 +7,7 @@ from models import Book
 from models import User
 from models import Wishlist 
 from models import Library
+import random
 from recommender import (
     recommend_bert,
     recommend_e5,
@@ -13,7 +15,13 @@ from recommender import (
     compare_models
 )
 app = FastAPI()
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # allow all (for now)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 Base.metadata.create_all(bind=engine)
 
 @app.get("/")
@@ -166,9 +174,14 @@ def get_wishlist(user_id: int):
     for item in items:
         b = db.query(Book).filter(Book.id == item.book_id).first()
         books.append({
-            "id": b.id,
-            "title": b.title,
-            "image": b.imageUrl
+                "id": b.id,
+                "title": b.title,
+                "author": b.author,
+                "genre": b.genre,
+                "tropes": b.tropes,
+                "synopsis": b.synopsis,
+                "image": None,   # 🔥 FIXED
+                "rating": b.rating
         })
 
     return books
@@ -195,9 +208,15 @@ def get_library(user_id: int):
     for item in items:
         b = db.query(Book).filter(Book.id == item.book_id).first()
         books.append({
-            "id": b.id,
-            "title": b.title,
-            "image": b.imageUrl
+                "id": b.id,
+                "title": b.title,
+                "author": b.author,
+                "genre": b.genre,
+                "tropes": b.tropes,
+                "synopsis": b.synopsis,
+                "image": None,   # 🔥 FIXED
+                "rating": b.rating
+
         })
 
     return books
@@ -212,32 +231,86 @@ def homepage(user_id: int):
 
     user = db.query(User).filter(User.id == user_id).first()
 
-    # Random books
-    books = db.query(Book).all()
-    random_books = random.sample(books, min(10, len(books)))
+    # ✅ RECOMMENDED (FULL DATA)
+    rec_books = recommend_e5(user.preferred_genre)
 
-    # E5 recommendations
-    recommended = recommend_e5(user.preferred_genre)
+    # ✅ GET ALL BOOKS
+    books = db.query(Book).all()
+
+    import random
+    random.shuffle(books)
+
+    random_books = books[:12]
+
+    # 🔥 FORMAT FULL DATA
+    def format_book(b):
+        return {
+            "id": b.id,
+            "title": b.title,
+            "author": b.author,
+            "genre": b.genre,
+            "tropes": b.tropes,
+            "synopsis": b.synopsis,
+            "image": None,
+            "rating": b.rating
+        }
 
     return {
         "genre": user.preferred_genre,
-        "recommended": recommended,
-        "random": [
-            {
-                "id": b.id,
-                "title": b.title,
-                "image": b.imageUrl
-            }
-            for b in random_books
-        ]
+        "recommended": [format_book(b) for b in rec_books],
+        "random": [format_book(b) for b in random_books]
     }
-
 @app.get("/recommend/{genre}")
 def recommend(genre: str):
     return {
         "bert": recommend_bert(genre),
         "e5": recommend_e5(genre),
         "bge": recommend_bge(genre)
+    }
+@app.delete("/wishlist/{user_id}/{book_id}")
+def remove_wishlist(user_id: int, book_id: int):
+    db = SessionLocal()
+
+    item = db.query(Wishlist).filter(
+        Wishlist.user_id == user_id,
+        Wishlist.book_id == book_id
+    ).first()
+
+    if item:
+        db.delete(item)
+        db.commit()
+
+    return {"msg": "Removed from wishlist"}
+
+@app.delete("/library/{user_id}/{book_id}")
+def remove_library(user_id: int, book_id: int):
+    db = SessionLocal()
+
+    item = db.query(Library).filter(
+        Library.user_id == user_id,
+        Library.book_id == book_id
+    ).first()
+
+    if item:
+        db.delete(item)
+        db.commit()
+
+    return {"msg": "Removed from library"}
+
+@app.get("/profile/{user_id}")
+def get_profile(user_id: int):
+    db = SessionLocal()
+
+    user = db.query(User).filter(User.id == user_id).first()
+
+    wishlist_count = db.query(Wishlist).filter(Wishlist.user_id == user_id).count()
+    library_count = db.query(Library).filter(Library.user_id == user_id).count()
+
+    return {
+        "username": user.username,
+        "genre": user.genre,
+        "wishlist_count": wishlist_count,
+        "library_count": library_count
     }
 
 @app.get("/compare/{genre}")
