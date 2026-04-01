@@ -4,11 +4,7 @@ from pydantic import BaseModel
 from database import Base, engine
 from crud import load_books
 from database import SessionLocal
-from models import Book
-from models import User
-from models import Wishlist 
-from models import Library
-import random
+from models import Book, User, Wishlist, Library
 from recommender import (
     load_models_once,
     recommend_bert,
@@ -16,6 +12,8 @@ from recommender import (
     recommend_bge,
     compare_models
 )
+import random
+
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
@@ -25,7 +23,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 Base.metadata.create_all(bind=engine)
-
 
 @app.on_event("startup")
 def warm_up_recommender_models():
@@ -163,9 +160,6 @@ def get_user(user_id: int):
         "genre": user.preferred_genre
     }
 
-import random
-from models import Book
-
 @app.get("/books/random")
 def random_books():
     db = SessionLocal()
@@ -198,8 +192,6 @@ def book_details(book_id: int):
         "image": b.imageUrl
     }
 
-from models import Wishlist
-
 @app.post("/wishlist/{user_id}/{book_id}")
 def add_wishlist(user_id: int, book_id: int):
     db = SessionLocal()
@@ -231,8 +223,6 @@ def get_wishlist(user_id: int):
         })
 
     return books
-
-from models import Library
 
 @app.post("/library/{user_id}/{book_id}")
 def add_library(user_id: int, book_id: int):
@@ -267,15 +257,11 @@ def get_library(user_id: int):
 
     return books
 
-import random
-from database import SessionLocal
-from models import User, Book
-
 @app.get("/homepage/{user_id}")
 def homepage(user_id: int):
     db = SessionLocal()
 
-    user = db.query(User).filter(User.id == user_id).first()
+    user : User = db.query(User).filter(User.id == user_id).first()
 
     # ✅ RECOMMENDED (FULL DATA)
     rec_books = recommend_e5(user.preferred_genre)
@@ -306,6 +292,7 @@ def homepage(user_id: int):
         "recommended": [format_book(b) for b in rec_books],
         "random": [format_book(b) for b in random_books]
     }
+
 @app.get("/recommend/{genre}")
 def recommend(genre: str):
     return {
