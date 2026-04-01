@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from database import Base, engine
 from crud import load_books
 from database import SessionLocal
@@ -46,9 +47,15 @@ def get_books():
     books = db.query(Book).limit(10).all()
     return [
         {
+            "id": b.id,
             "title": b.title,
             "author": b.author,
-            "genre": b.genre
+            "genre": b.genre,
+            "tropes": b.tropes,
+            "imageUrl": b.imageUrl,
+            "synopsis": b.synopsis,
+            "rating": b.rating,
+            "ratedBy": b.ratedBy,
         }
         for b in books
     ]
@@ -112,6 +119,39 @@ def set_genre(user_id: int, genre: str):
     db.commit()
 
     return {"msg": "Genre set"}
+
+
+class UserPreferencesPayload(BaseModel):
+    user_id: int
+    genres: list[str]
+
+
+@app.get("/user/preferences")
+def get_user_preferences(user_id: int):
+    db = SessionLocal()
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        return {"user_id": user_id, "genres": []}
+
+    if user.preferred_genre:
+        return {"user_id": user.id, "genres": [user.preferred_genre]}
+
+    return {"user_id": user.id, "genres": []}
+
+
+@app.post("/user/preferences")
+def save_user_preferences(payload: UserPreferencesPayload):
+    db = SessionLocal()
+    user = db.query(User).filter(User.id == payload.user_id).first()
+
+    if not user:
+        return {"error": "User not found"}
+
+    user.preferred_genre = payload.genres[0] if payload.genres else None
+    db.commit()
+
+    return {"msg": "Preferences updated", "genres": payload.genres}
 
 @app.get("/user/{user_id}")
 def get_user(user_id: int):
@@ -220,7 +260,7 @@ def get_library(user_id: int):
                 "genre": b.genre,
                 "tropes": b.tropes,
                 "synopsis": b.synopsis,
-                "image": None,   # 🔥 FIXED
+                "image": b.imageUrl,   # 🔥 FIXED
                 "rating": b.rating
 
         })
@@ -257,7 +297,7 @@ def homepage(user_id: int):
             "genre": b.genre,
             "tropes": b.tropes,
             "synopsis": b.synopsis,
-            "image": None,
+            "image": b.imageUrl,
             "rating": b.rating
         }
 

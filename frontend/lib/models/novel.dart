@@ -23,17 +23,17 @@ class Novel {
 
   factory Novel.fromJson(Map<String, dynamic> json) {
     return Novel(
-      id: json["id"],
+      id: int.tryParse((json["id"] ?? 0).toString()) ?? 0,
       title: json["title"] ?? "",
       author: json["author"] ?? "",
       genre: json["genre"] ?? "",
       tropes: json["tropes"]?? "",
-      imageUrl: json["imageUrl"] ?? "",
+      imageUrl: (json["imageUrl"] ?? json["image"] ?? "").toString(),
       synopsis: json["synopsis"] ?? "",
       rating: json["rating"] == null
           ? 0.0
           : double.tryParse(json["rating"].toString()) ?? 0.0,
-      ratedBy: json["ratedBy"] ?? 0,
+      ratedBy: int.tryParse((json["ratedBy"] ?? 0).toString()) ?? 0,
     );
   }
 }
