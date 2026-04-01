@@ -9,6 +9,7 @@ from models import Wishlist
 from models import Library
 import random
 from recommender import (
+    load_models_once,
     recommend_bert,
     recommend_e5,
     recommend_bge,
@@ -23,6 +24,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 Base.metadata.create_all(bind=engine)
+
+
+@app.on_event("startup")
+def warm_up_recommender_models():
+    load_models_once()
 
 @app.get("/")
 def home():
