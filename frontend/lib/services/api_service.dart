@@ -63,7 +63,7 @@ class ApiService {
   // ---------- NOVELS ----------
 
   static Future<List<Novel>> fetchAllNovels() async {
-    final response = await http.get(Uri.parse("$baseUrl/novels"));
+    final response = await http.get(Uri.parse("$baseUrl/books"));
 
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
@@ -103,7 +103,7 @@ class ApiService {
 
   static Future<void> addToLibrary(int userId, int novelId) async {
     final res = await http.post(
-      Uri.parse("$baseUrl/library/add?user_id=$userId&novel_id=$novelId"),
+      Uri.parse("$baseUrl/library/$userId/$novelId"),
     );
 
     if (res.statusCode != 200) {
@@ -114,7 +114,7 @@ class ApiService {
   static Future<void> addToWishlist(int userId, int novelId) async {
 
   final response = await http.post(
-    Uri.parse("$baseUrl/wishlist/add?user_id=$userId&novel_id=$novelId"),
+    Uri.parse("$baseUrl/wishlist/$userId/$novelId"),
   );
 
   if (response.statusCode != 200) {
