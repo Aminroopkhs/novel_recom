@@ -308,7 +308,7 @@ def get_profile(user_id: int):
 
     return {
         "username": user.username,
-        "genre": user.genre,
+        "genre": user.preferred_genre,
         "wishlist_count": wishlist_count,
         "library_count": library_count
     }
