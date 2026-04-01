@@ -43,3 +43,11 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+backend/venv/
+backend/novel_app.db
+__pycache__/
+.env
+
+.backend/db_check.py
+pubspec.lock
