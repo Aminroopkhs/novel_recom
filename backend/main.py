@@ -233,7 +233,7 @@ def homepage(user_id: int):
     user = db.query(User).filter(User.id == user_id).first()
 
     # ✅ RECOMMENDED (FULL DATA)
-    rec_books = recommend_ml(user.preferred_genre)
+    rec_books = recommend_e5(user.preferred_genre)
 
     # ✅ GET ALL BOOKS
     books = db.query(Book).all()
